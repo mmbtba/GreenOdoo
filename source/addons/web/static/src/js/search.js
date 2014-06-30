@@ -513,12 +513,6 @@ instance.web.SearchView = instance.web.Widget.extend(/** @lends instance.web.Sea
             .value()).then(function () {
                 resp(_(arguments).chain()
                     .compact()
-                    .map(function (completion) {
-                        if (completion.length && completion[0].facet !== undefined) {
-                            completion[0].first = true;
-                        }
-                        return completion;
-                    })
                     .flatten(true)
                     .value());
                 });
@@ -846,16 +840,16 @@ instance.web.SearchViewDrawer = instance.web.Widget.extend({
             }
 
             switch (item.tag) {
-            case 'separator': 
-            case 'newline':
-                filters.push(new instance.web.search.Separator(this))
+            case 'separator': case 'newline':
                 break;
             case 'filter':
                 filters.push(new instance.web.search.Filter(item, group));
                 break;
             case 'group':
+                self.add_separator();
                 self.make_widgets(item.children, fields,
                     new instance.web.search.Group(group, 'w', item));
+                self.add_separator();
                 break;
             case 'field':
                 var field = this.make_field(
@@ -870,6 +864,11 @@ instance.web.SearchViewDrawer = instance.web.Widget.extend({
         if (filters.length) {
             group.push(new instance.web.search.FilterGroup(filters, this));
         }
+    },
+
+    add_separator: function () {
+        if (!(_.last(this.inputs) instanceof instance.web.search.Separator))
+            new instance.web.search.Separator(this);
     },
     /**
      * Creates a field for the provided field descriptor item (which comes
@@ -1315,6 +1314,8 @@ instance.web.search.Filter = instance.web.search.Input.extend(/** @lends instanc
 });
 
 instance.web.search.Separator = instance.web.search.Input.extend({
+    _in_drawer: false,
+
     complete: function () {
         return {is_separator: true};
     }
