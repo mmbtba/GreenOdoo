@@ -3013,7 +3013,7 @@ class BaseModel(object):
         if not fields:
             fields = filter(valid, self._fields)
         else:
-            invalid_fields = list(set(filter(lambda name: not valid(name), fields)))
+            invalid_fields = set(filter(lambda name: not valid(name), fields))
             if invalid_fields:
                 _logger.warning('Access Denied by ACLs for operation: %s, uid: %s, model: %s, fields: %s',
                     operation, user, self._name, ', '.join(invalid_fields))
@@ -3281,7 +3281,7 @@ class BaseModel(object):
         self._cr.execute(query, (self._name, tuple(self.ids)))
         res = self._cr.dictfetchall()
 
-        uids = list(set(r[k] for r in res for k in ['write_uid', 'create_uid'] if r.get(k)))
+        uids = set(r[k] for r in res for k in ['write_uid', 'create_uid'] if r.get(k))
         names = dict(self.env['res.users'].browse(uids).name_get())
 
         for r in res:
@@ -3504,7 +3504,7 @@ class BaseModel(object):
 
         for order, obj_name, store_ids, fields in result_store:
             if obj_name == self._name:
-                effective_store_ids = list(set(store_ids) - set(ids))
+                effective_store_ids = set(store_ids) - set(ids)
             else:
                 effective_store_ids = store_ids
             if effective_store_ids:
@@ -4945,19 +4945,6 @@ class BaseModel(object):
         """ stuff to do right after the registry is built """
         pass
 
-    def __getattr__(self, name):
-        if name.startswith('signal_'):
-            # self.signal_XXX() sends signal XXX to the record's workflow
-            signal_name = name[7:]
-            assert signal_name
-            return (lambda *args, **kwargs:
-                    self.signal_workflow(*args, signal=signal_name, **kwargs))
-
-        get = getattr(super(BaseModel, self), '__getattr__', None)
-        if get is None:
-            raise AttributeError("%r has no attribute %r" % (type(self).__name__, name))
-        return get(name)
-
     def _patch_method(self, name, method):
         """ Monkey-patch a method for all instances of this model. This replaces
             the method called `name` by `method` in `self`'s class.
@@ -5415,7 +5402,7 @@ class BaseModel(object):
         """ If `field` must be recomputed on some record in `self`, return the
             corresponding records that must be recomputed.
         """
-        for env in [self.env] + list(self.env.all):
+        for env in [self.env] + list(iter(self.env.all)):
             if env.todo.get(field) and env.todo[field] & self:
                 return env.todo[field]
 
@@ -5437,7 +5424,7 @@ class BaseModel(object):
         """ Recompute stored function fields. The fields and records to
             recompute have been determined by method :meth:`modified`.
         """
-        for env in list(self.env.all):
+        for env in list(iter(self.env.all)):
             while env.todo:
                 field, recs = next(env.todo.iteritems())
                 # evaluate the fields to recompute, and save them to database
