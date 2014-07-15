@@ -291,7 +291,17 @@ class sale_order(osv.osv):
         value = {
             'currency_id': self.pool.get('product.pricelist').browse(cr, uid, pricelist_id, context=context).currency_id.id
         }
+<<<<<<< HEAD
         return {'value': value}
+=======
+        if not order_lines or order_lines == [(6, 0, [])]:
+            return {'value': value}
+        warning = {
+            'title': _('Pricelist Warning!'),
+            'message' : _('If you change the pricelist of this order (and eventually the currency), prices of existing order lines will not be updated.')
+        }
+        return {'warning': warning, 'value': value}
+>>>>>>> c363451f959c5daabc9a37bcbd42930cc851c2e1
 
     def get_salenote(self, cr, uid, ids, partner_id, context=None):
         context_lang = context.copy() 
