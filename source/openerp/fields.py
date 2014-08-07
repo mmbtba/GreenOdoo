@@ -135,6 +135,11 @@ class Field(object):
         :param groups: comma-separated list of group xml ids (string); this
             restricts the field access to the users of the given groups only
 
+        :param bool copy: whether the field value should be copied when the record
+            is duplicated (default: ``True`` for normal fields, ``False`` for
+            ``one2many`` and computed fields, including property fields and
+            related fields)
+
         .. _field-computed:
 
         .. rubric:: Computed fields
@@ -1036,8 +1041,11 @@ class Date(Field):
         if not value:
             return False
         if isinstance(value, basestring):
-            value = self.from_string(value)
-        return value.strftime(DATE_FORMAT)
+            if validate:
+                # force parsing for validation
+                self.from_string(value)
+            return value[:DATE_LENGTH]
+        return self.to_string(value)
 
     def convert_to_export(self, value, env):
         if value and env.context.get('export_raw_data'):
@@ -1101,8 +1109,14 @@ class Datetime(Field):
         if not value:
             return False
         if isinstance(value, basestring):
-            value = self.from_string(value)
-        return value.strftime(DATETIME_FORMAT)
+            if validate:
+                # force parsing for validation
+                self.from_string(value)
+            value = value[:DATETIME_LENGTH]
+            if len(value) == DATE_LENGTH:
+                value += " 00:00:00"
+            return value
+        return self.to_string(value)
 
     def convert_to_export(self, value, env):
         if value and env.context.get('export_raw_data'):
