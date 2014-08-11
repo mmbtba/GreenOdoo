@@ -24,6 +24,7 @@ import time
 import psycopg2
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
+import pytz
 
 import openerp
 from openerp import SUPERUSER_ID, netsvc, api
@@ -159,8 +160,8 @@ class ir_cron(osv.osv):
         """
         try:
             with api.Environment.manage():
-                now = datetime.now() 
-                nextcall = datetime.strptime(job['nextcall'], DEFAULT_SERVER_DATETIME_FORMAT)
+                now = fields.datetime.context_timestamp(job_cr, SUPERUSER_ID, datetime.now())
+                nextcall = fields.datetime.context_timestamp(job_cr, SUPERUSER_ID, datetime.strptime(job['nextcall'], DEFAULT_SERVER_DATETIME_FORMAT))
                 numbercall = job['numbercall']
 
                 ok = False
@@ -176,7 +177,7 @@ class ir_cron(osv.osv):
                 if not numbercall:
                     addsql = ', active=False'
                 cron_cr.execute("UPDATE ir_cron SET nextcall=%s, numbercall=%s"+addsql+" WHERE id=%s",
-                           (nextcall.strftime(DEFAULT_SERVER_DATETIME_FORMAT), numbercall, job['id']))
+                           (nextcall.astimezone(pytz.UTC).strftime(DEFAULT_SERVER_DATETIME_FORMAT), numbercall, job['id']))
                 self.invalidate_cache(cr, SUPERUSER_ID)
 
         finally:
