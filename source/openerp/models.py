@@ -4105,6 +4105,12 @@ class BaseModel(object):
         # check Python constraints
         recs._validate_fields(vals)
 
+        # Mark new-style fields to recompute
+        modified_fields = list(vals)
+        if self._log_access:
+            modified_fields += ['create_uid', 'create_date', 'write_uid', 'write_date']
+        recs.modified(modified_fields)
+
         if not context.get('no_store_function', False):
             result += self._store_get_values(cr, user, [id_new],
                 list(set(vals.keys() + self._inherits.values())),
@@ -4115,12 +4121,7 @@ class BaseModel(object):
                 if not (model_name, ids, fields2) in done:
                     self.pool[model_name]._store_set_values(cr, user, ids, fields2, context)
                     done.append((model_name, ids, fields2))
-
             # recompute new-style fields
-            modified_fields = list(vals)
-            if self._log_access:
-                modified_fields += ['create_uid', 'create_date', 'write_uid', 'write_date']
-            recs.modified(modified_fields)
             recs.recompute()
 
         if self._log_create and not (context and context.get('no_store_function', False)):
