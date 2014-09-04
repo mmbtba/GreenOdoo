@@ -2937,8 +2937,11 @@ class BaseModel(object):
         for parent_model, parent_field in reversed(cls._inherits.items()):
             for attr, field in cls.pool[parent_model]._fields.iteritems():
                 if attr not in cls._fields:
-                    new_field = field.copy(related=(parent_field, attr), _origin=field)
-                    cls._add_field(attr, new_field)
+                    cls._add_field(attr, field.copy(
+                        related=(parent_field, attr),
+                        related_sudo=False,
+                        _origin=field,
+                    ))
 
         cls._inherits_reload_src()
 
@@ -5308,14 +5311,17 @@ class BaseModel(object):
             yield self._browse(self.env, (id,))
 
     def __contains__(self, item):
-        """ Test whether `item` is a subset of `self` or a field name. """
-        if isinstance(item, BaseModel):
-            if self._name == item._name:
-                return set(item._ids) <= set(self._ids)
-            raise except_orm("ValueError", "Mixing apples and oranges: %s in %s" % (item, self))
-        if isinstance(item, basestring):
+        """ Test whether `item` (record or field name) is an element of `self`.
+            In the first case, the test is fully equivalent to::
+
+                any(item == record for record in self)
+        """
+        if isinstance(item, BaseModel) and self._name == item._name:
+            return len(item) == 1 and item.id in self._ids
+        elif isinstance(item, basestring):
             return item in self._fields
-        return item in self.ids
+        else:
+            raise except_orm("ValueError", "Mixing apples and oranges: %s in %s" % (item, self))
 
     def __add__(self, other):
         """ Return the concatenation of two recordsets. """
