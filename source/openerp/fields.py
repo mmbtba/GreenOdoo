@@ -25,6 +25,7 @@ from copy import copy
 from datetime import date, datetime
 from functools import partial
 from operator import attrgetter
+from types import NoneType
 import logging
 import pytz
 import xmlrpclib
@@ -272,7 +273,7 @@ class Field(object):
     related = None              # sequence of field names, for related fields
     related_sudo = True         # whether related fields should be read as admin
     company_dependent = False   # whether `self` is company-dependent (property field)
-    default = None              # default value (literal or callable)
+    default = None              # default(recs) returns the default value
 
     string = None               # field label
     help = None                 # field tooltip
@@ -332,7 +333,47 @@ class Field(object):
         if not self.string:
             self.string = name.replace('_', ' ').capitalize()
 
+        # determine self.default and cls._defaults in a consistent way
+        self._determine_default(cls, name)
+
         self.reset()
+
+    def _determine_default(self, cls, name):
+        """ Retrieve the default value for `self` in the hierarchy of `cls`, and
+            determine `self.default` and `cls._defaults` accordingly.
+        """
+        self.default = None
+
+        # traverse the class hierarchy upwards, and take the first field
+        # definition with a default or _defaults for self
+        for klass in cls.__mro__:
+            field = klass.__dict__.get(name, self)
+            if not isinstance(field, type(self)):
+                return      # klass contains another value overridden by self
+
+            if 'default' in field._attrs:
+                # take the default in field, and adapt it for cls._defaults
+                value = field._attrs['default']
+                if callable(value):
+                    self.default = value
+                    cls._defaults[name] = lambda model, cr, uid, context: \
+                        self.convert_to_write(value(model.browse(cr, uid, [], context)))
+                else:
+                    self.default = lambda recs: value
+                    cls._defaults[name] = value
+                return
+
+            defaults = klass.__dict__.get('_defaults') or {}
+            if name in defaults:
+                # take the value from _defaults, and adapt it for self.default
+                value = defaults[name]
+                value_func = value if callable(value) else lambda *args: value
+                self.default = lambda recs: self.convert_to_cache(
+                    value_func(recs._model, recs._cr, recs._uid, recs._context),
+                    recs, validate=False,
+                )
+                cls._defaults[name] = value
+                return
 
     def __str__(self):
         return "%s.%s" % (self.model_name, self.name)
@@ -824,8 +865,8 @@ class Field(object):
 
     def determine_default(self, record):
         """ determine the default value of field `self` on `record` """
-        if self.default is not None:
-            value = self.default(record) if callable(self.default) else self.default
+        if self.default:
+            value = self.default(record)
             record._cache[self] = self.convert_to_cache(value, record)
         elif self.compute:
             self._compute_value(record)
@@ -943,6 +984,9 @@ class Float(Field):
     def _setup_digits(self, env):
         """ Setup the digits for `self` and its corresponding column """
         self.digits = self._digits(env.cr) if callable(self._digits) else self._digits
+        if self.digits:
+            assert isinstance(self.digits, (tuple, list)) and len(self.digits) >= 2, \
+                "Float field %s with digits %r, expecting (total, decimal)" % (self, self.digits)
         if self.store:
             column = env[self.model_name]._columns[self.name]
             column.digits_change(env.cr)
@@ -984,6 +1028,11 @@ class Char(_String):
     """
     type = 'char'
     size = None
+
+    def _setup(self, env):
+        super(Char, self)._setup(env)
+        assert isinstance(self.size, (NoneType, int)), \
+            "Char field %s with non-integer size %r" % (self, self.size)
 
     _column_size = property(attrgetter('size'))
     _related_size = property(attrgetter('size'))
@@ -1263,6 +1312,11 @@ class Reference(Selection):
     def __init__(self, selection=None, string=None, **kwargs):
         super(Reference, self).__init__(selection=selection, string=string, **kwargs)
 
+    def _setup(self, env):
+        super(Reference, self)._setup(env)
+        assert isinstance(self.size, int), \
+            "Reference field %s with non-integer size %r" % (self, self.size)
+
     _related_size = property(attrgetter('size'))
 
     _column_size = property(attrgetter('size'))
@@ -1294,6 +1348,11 @@ class _Relational(Field):
     relational = True
     domain = None                       # domain for searching values
     context = None                      # context for searching values
+
+    def _setup(self, env):
+        super(_Relational, self)._setup(env)
+        assert self.comodel_name in env.registry, \
+            "Field %s with unknown comodel_name %r" % (self, self.comodel_name)
 
     _description_relation = property(attrgetter('comodel_name'))
     _description_context = property(attrgetter('context'))
