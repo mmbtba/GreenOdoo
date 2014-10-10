@@ -341,7 +341,7 @@ scheduler.grid._getStyles = function(column, items){
 				if(column.paddingLeft != undefined)
 					cell_style.push(style+(column.paddingLeft||'0') + "px");
 				break;
-			case "padding-left":
+			case "padding-right":
 				if(column.paddingRight != undefined)
 					cell_style.push(style+(column.paddingRight||'0') + "px");
 				break;

@@ -1,5 +1,5 @@
 function log_message(message) {
-    window.dump("[OPENERP-PLUGIN LOG]: " + message + "\n")
+    window.dump("[OPENERP-PLUGIN LOG]: " + message + "\n");
 }
 
 function getMessage(uri) {
@@ -76,7 +76,7 @@ function check_connection(callback) {
 			alert("Please install the thunderbird module on your '" + getDbName() +"' database and try again !");
     		return
     	}
-    	return callback()
+    	return callback();
 	}
 }
 

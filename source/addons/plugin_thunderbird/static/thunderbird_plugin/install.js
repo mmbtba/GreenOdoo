@@ -4,7 +4,7 @@ const APP_NAME = "OpenERP";
 const APP_VERSION = "1.0";
 const WARNING = "WARNING: You need administrator privileges to install OpenERP Thunderbird Plugin. It will be installed in the application directory for all users.";
 const VERSION_ERROR = "This extension can only be installed in a version higher than 2.0";
-const NOT_WRITABLE_ERROR = "This extension requires write access to the application directory to install properly."
+const NOT_WRITABLE_ERROR = "This extension requires write access to the application directory to install properly.";
 const locales = [
 	"en-US",
 	null
