@@ -145,14 +145,11 @@ class report_rml(report_int):
 
         stylesheet_file = tools.file_open(self.xsl)
         try:
-            stylesheet = etree.parse(stylesheet_file)
-            xsl_path, _ = os.path.split(self.xsl)
-            for import_child in stylesheet.findall('./import'):
+            stylesheet = etree.parse(stylesheet_file).getroot()
+            for import_child in stylesheet.findall('./xsl:import', stylesheet.nsmap):
                 if 'href' in import_child.attrib:
                     imp_file = import_child.get('href')
-                    _, imp_file = tools.file_open(imp_file, subdir=xsl_path, pathinfo=True)
                     import_child.set('href', urllib.quote(str(imp_file)))
-                    imp_file.close()
         finally:
             stylesheet_file.close()
 
