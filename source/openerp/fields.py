@@ -394,8 +394,8 @@ class Field(object):
             if `self` has already been set up.
         """
         if not self.setup_done:
-            self.setup_done = True
             self._setup(env)
+            self.setup_done = True
 
     def _setup(self, env):
         """ Do the actual setup of `self`. """
@@ -427,16 +427,13 @@ class Field(object):
             self.related = tuple(self.related.split('.'))
 
         # determine the chain of fields, and make sure they are all set up
-        fields = []
         recs = env[self.model_name]
         for name in self.related:
-            fields.append(recs._fields[name])
+            field = recs._fields[name]
+            field.setup(env)
             recs = recs[name]
 
-        for field in fields:
-            field.setup(env)
-
-        self.related_field = field = fields[-1]
+        self.related_field = field
 
         # check type consistency
         if self.type != field.type:
@@ -753,8 +750,8 @@ class Field(object):
             # normal record -> read or compute value for this field
             self.determine_value(record)
         else:
-            # new record -> compute default value for this field
-            record.add_default_value(self)
+            # draft record -> compute the value or let it be null
+            self.determine_draft_value(record)
 
         # the result should be in cache now
         return record._cache[self]
@@ -861,12 +858,9 @@ class Field(object):
             # this is a non-stored non-computed field
             record._cache[self] = self.null(env)
 
-    def determine_default(self, record):
-        """ determine the default value of field `self` on `record` """
-        if self.default:
-            value = self.default(record)
-            record._cache[self] = self.convert_to_cache(value, record)
-        elif self.compute:
+    def determine_draft_value(self, record):
+        """ Determine the value of `self` for the given draft `record`. """
+        if self.compute:
             self._compute_value(record)
         else:
             record._cache[self] = SpecialValue(self.null(record.env))
@@ -1226,6 +1220,10 @@ class Selection(Field):
             selection = api.expected(api.model, selection)
         super(Selection, self).__init__(selection=selection, string=string, **kwargs)
 
+    def _setup(self, env):
+        super(Selection, self)._setup(env)
+        assert self.selection is not None, "Field %s without selection" % self
+
     def _setup_related(self, env):
         super(Selection, self)._setup_related(env)
         # selection must be computed on related field
@@ -1469,15 +1467,6 @@ class Many2one(_Relational):
 
     def convert_to_display_name(self, value):
         return ustr(value.display_name)
-
-    def determine_default(self, record):
-        super(Many2one, self).determine_default(record)
-        if self.delegate:
-            # special case: fields that implement inheritance between models
-            value = record[self.name]
-            if not value:
-                # the default value cannot be null, use a new record instead
-                record[self.name] = record.env[self.comodel_name].new()
 
 
 class UnionUpdate(SpecialValue):
