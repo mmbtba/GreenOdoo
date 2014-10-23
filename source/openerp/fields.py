@@ -428,10 +428,12 @@ class Field(object):
 
         # determine the chain of fields, and make sure they are all set up
         recs = env[self.model_name]
+        fields = []
         for name in self.related:
             field = recs._fields[name]
             field.setup(env)
             recs = recs[name]
+            fields.append(field)
 
         self.related_field = field
 
@@ -451,6 +453,10 @@ class Field(object):
         for attr, prop in self.related_attrs:
             if not getattr(self, attr):
                 setattr(self, attr, getattr(field, prop))
+
+        # special case for required: check if all fields are required
+        if not self.store and not self.required:
+            self.required = all(field.required for field in fields)
 
     def _compute_related(self, records):
         """ Compute the related field `self` on `records`. """
@@ -792,11 +798,9 @@ class Field(object):
 
     def _compute_value(self, records):
         """ Invoke the compute method on `records`. """
-        # mark the computed fields failed in cache, so that access before
-        # computation raises an exception
-        exc = Warning("Field %s is accessed before being computed." % self)
+        # initialize the fields to their corresponding null value in cache
         for field in self.computed_fields:
-            records._cache[field] = FailedValue(exc)
+            records._cache[field] = field.null(records.env)
             records.env.computed[field].update(records._ids)
         self.compute(records)
         for field in self.computed_fields:
