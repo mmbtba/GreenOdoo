@@ -367,7 +367,6 @@ class website_sale(http.Controller):
         shipping_ids = []
         checkout = {}
         if not data:
-            print request.uid, request.website.user_id.id
             if request.uid != request.website.user_id.id:
                 checkout.update( self.checkout_parse("billing", partner) )
                 shipping_ids = orm_partner.search(cr, SUPERUSER_ID, [("parent_id", "=", partner.id), ('type', "=", 'delivery')], context=context)
@@ -456,7 +455,7 @@ class website_sale(http.Controller):
         else:
             query = dict((prefix + field_name, getattr(data, field_name))
                 for field_name in all_fields if getattr(data, field_name))
-            if data.parent_id:
+            if address_type == 'billing' and data.parent_id:
                 query[prefix + 'street'] = data.parent_id.name
 
         if query.get(prefix + 'state_id'):
